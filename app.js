@@ -4,7 +4,7 @@
 // Kopfhörer-Latenz verschoben.
 
 import {
-  Input, ALL_FORMATS, BlobSource, CanvasSink,
+  Input, ALL_FORMATS, BlobSource, CanvasSink, AudioBufferSink,
   Output, Mp4OutputFormat, BufferTarget, CanvasSource, AudioBufferSource,
   QUALITY_HIGH, canEncodeVideo, canEncodeAudio,
 } from 'mediabunny';
@@ -195,17 +195,46 @@ $('song-input').addEventListener('change', async (e) => {
     toast('Startpunkt wählen und als Vorlage speichern');
   } catch (err) {
     console.error(err);
-    toast('Diese Datei konnte nicht gelesen werden. Versuch MP3, WAV oder M4A.');
+    toast('Diese Datei konnte nicht gelesen werden. Unterstützt: MP3, WAV, M4A, AIFF, FLAC.', 4000);
   }
 });
 
 async function decode(blob) {
   const ctx = makeCtx();
-  const ab = await blob.arrayBuffer();
-  return await new Promise((res, rej) => {
-    const p = ctx.decodeAudioData(ab, res, rej);
-    if (p && p.then) p.then(res, rej);
-  });
+  try {
+    const ab = await blob.arrayBuffer();
+    return await new Promise((res, rej) => {
+      const p = ctx.decodeAudioData(ab, res, rej);
+      if (p && p.then) p.then(res, rej);
+    });
+  } catch (err) {
+    // Fallback: z. B. 32-Bit-Float-WAV oder Formate, die Safari nicht selbst dekodiert
+    console.warn('decodeAudioData fehlgeschlagen, nutze Fallback-Decoder', err);
+    return await decodeFallback(blob);
+  }
+}
+
+async function decodeFallback(blob) {
+  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  const track = await input.getPrimaryAudioTrack();
+  if (!track) throw new Error('Keine Audiospur gefunden');
+  const sink = new AudioBufferSink(track);
+  const parts = [];
+  let sr = track.sampleRate, ch = track.numberOfChannels, total = 0;
+  const first = await track.getFirstTimestamp();
+  for await (const { buffer, timestamp } of sink.buffers()) {
+    sr = buffer.sampleRate; ch = buffer.numberOfChannels;
+    const offset = Math.max(0, Math.round((timestamp - first) * sr));
+    parts.push({ buffer, offset });
+    total = Math.max(total, offset + buffer.length);
+  }
+  if (!total) throw new Error('Leere Audiodatei');
+  const out = new AudioBuffer({ length: total, numberOfChannels: ch, sampleRate: sr });
+  for (let c = 0; c < ch; c++) {
+    const dst = out.getChannelData(c);
+    for (const { buffer, offset } of parts) dst.set(buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1)).subarray(0, total - offset), offset);
+  }
+  return out;
 }
 
 async function loadSong(rec, isNew) {
@@ -1046,4 +1075,4 @@ function registerSW() {
 }
 
 // Für Tests
-window.__ls = { S, saveTemplate, openTemplate, allTemplates, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };
+window.__ls = { S, decodeFallback, saveTemplate, openTemplate, allTemplates, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };

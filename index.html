@@ -28,7 +28,7 @@
   <section id="templates-section" hidden>
     <div class="section-head">
       <h2 class="section-title">Deine Vorlagen</h2>
-      <label class="chip chip-add" for="song-input">+ MP3 importieren</label>
+      <label class="chip chip-add" for="song-input">+ Song importieren</label>
     </div>
     <ul id="templates-list" class="templates"></ul>
   </section>
@@ -38,7 +38,7 @@
     <span class="eyebrow">Los geht's</span>
     <span class="hero-title">Lade deinen Song</span>
     <span class="hero-sub">MP3, WAV oder M4A. Startpunkt wählen, als Vorlage speichern, jederzeit wieder hochholen. Die Datei bleibt auf deinem Handy.</span>
-    <label class="btn btn-dark" for="song-input">MP3 importieren</label>
+    <label class="btn btn-dark" for="song-input">MP3 / WAV importieren</label>
   </section>
 
   <!-- Song geladen -->
@@ -107,7 +107,7 @@
     </section>
   </section>
 
-  <input id="song-input" type="file" accept="audio/*,audio/mpeg,.mp3,.wav,.m4a,.aac" hidden>
+  <input id="song-input" type="file" accept="audio/*,.mp3,.wav,.wave,.m4a,.aac,.aif,.aiff,.flac,audio/mpeg,audio/wav,audio/x-wav,audio/wave,audio/vnd.wave,audio/aiff,audio/x-aiff" hidden>
   <p class="foot">Alles läuft lokal in deinem Browser. Nichts wird hochgeladen.</p>
 </main>
 
