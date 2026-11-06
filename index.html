@@ -24,21 +24,33 @@
     <span class="brand">Lipsync Studio</span>
   </header>
 
+  <!-- Vorlagen -->
+  <section id="templates-section" hidden>
+    <div class="section-head">
+      <h2 class="section-title">Deine Vorlagen</h2>
+      <label class="chip chip-add" for="song-input">+ MP3 importieren</label>
+    </div>
+    <ul id="templates-list" class="templates"></ul>
+  </section>
+
   <!-- Kein Song -->
   <section id="empty-song" class="hero-card">
     <span class="eyebrow">Los geht's</span>
     <span class="hero-title">Lade deinen Song</span>
-    <span class="hero-sub">MP3, WAV oder M4A. Die Datei bleibt auf deinem Handy.</span>
-    <label class="btn btn-dark" for="song-input">Song wählen</label>
+    <span class="hero-sub">MP3, WAV oder M4A. Startpunkt wählen, als Vorlage speichern, jederzeit wieder hochholen. Die Datei bleibt auf deinem Handy.</span>
+    <label class="btn btn-dark" for="song-input">MP3 importieren</label>
   </section>
 
   <!-- Song geladen -->
   <section id="song-area" hidden>
     <div class="hero-card">
-      <span class="eyebrow">Heute performst du</span>
+      <span id="hero-eyebrow" class="eyebrow">Heute performst du</span>
       <span id="song-title" class="hero-title">–</span>
       <span id="song-sel-label" class="hero-sub">–</span>
-      <label class="link-dark" for="song-input">Anderen Song wählen</label>
+      <div class="hero-actions">
+        <button id="btn-save-template" class="btn btn-dark btn-small">Als Vorlage speichern</button>
+        <button id="btn-save-as-new" class="link-dark" hidden>als neue Vorlage</button>
+      </div>
     </div>
 
     <div class="wave-wrap">
@@ -48,11 +60,24 @@
         <strong id="sel-len">0 Sekunden</strong>
         <span id="sel-end">0:00</span>
       </div>
+      <div class="start-row">
+        <span class="muted small">Startpunkt</span>
+        <button class="chip" data-nudge="-1">−1 s</button>
+        <button class="chip" data-nudge="-0.1">−0,1</button>
+        <button class="chip" data-nudge="0.1">+0,1</button>
+        <button class="chip" data-nudge="1">+1 s</button>
+      </div>
       <div class="chip-row">
+        <button class="chip" id="btn-listen">Anhören</button>
+        <button class="chip" id="btn-listen-before">Ab 5 s vorher</button>
+        <button class="chip chip-hot" id="btn-set-start" hidden>Start hier!</button>
+      </div>
+      <div class="chip-row">
+        <span class="muted small len-label">Länge</span>
         <button class="chip" data-len="15">15 s</button>
         <button class="chip" data-len="20">20 s</button>
         <button class="chip" data-len="30">30 s</button>
-        <button class="chip" id="btn-listen">Anhören</button>
+        <button class="chip" data-len="60">60 s</button>
       </div>
     </div>
 
@@ -82,7 +107,7 @@
     </section>
   </section>
 
-  <input id="song-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac" hidden>
+  <input id="song-input" type="file" accept="audio/*,audio/mpeg,.mp3,.wav,.m4a,.aac" hidden>
   <p class="foot">Alles läuft lokal in deinem Browser. Nichts wird hochgeladen.</p>
 </main>
 

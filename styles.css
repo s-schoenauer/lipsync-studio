@@ -63,7 +63,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hero-title { font-family: var(--font-display); font-size: 32px; font-weight: 800; line-height: 1.05; word-break: break-word; }
 .hero-sub { font-size: 15px; font-weight: 500; }
 .hero-card .btn { margin-top: 14px; }
-.link-dark { margin-top: 8px; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; align-self: flex-start; min-height: 32px; display: inline-flex; align-items: center; }
+.link-dark { background: none; border: 0; padding: 0; color: inherit; margin-top: 8px; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; align-self: flex-start; min-height: 32px; display: inline-flex; align-items: center; }
 .link-light { background: none; border: 0; color: var(--muted); text-decoration: underline; font-size: 14px; padding: 8px 0; min-height: 44px; }
 
 #song-area { display: flex; flex-direction: column; gap: 20px; }
@@ -221,3 +221,29 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--text); color: var(--ink); padding: 12px 18px; border-radius: 16px; font-weight: 700;
   max-width: calc(100% - 32px); z-index: 50; text-align: center;
 }
+
+/* ---------- Vorlagen ---------- */
+#templates-section { display: flex; flex-direction: column; gap: 12px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.chip-add { display: inline-flex; align-items: center; cursor: pointer; background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 700; }
+.templates { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; }
+.templates li { flex: 0 0 auto; scroll-snap-align: start; position: relative; }
+.tpl {
+  width: 168px; min-height: 104px; border: 2px solid transparent; background: var(--card); border-radius: 22px;
+  padding: 14px; text-align: left; display: flex; flex-direction: column; gap: 4px;
+}
+.tpl.on { border-color: var(--accent); }
+.tpl-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; line-height: 1.1; word-break: break-word; }
+.tpl-sub { font-size: 13px; color: var(--muted); }
+.tpl-del {
+  position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-radius: 50%; border: 0;
+  background: var(--bg); color: var(--muted); font-size: 13px;
+}
+.hero-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.hero-actions .link-dark { margin-top: 0; }
+.btn-small { min-height: 44px; font-size: 15px; padding: 0 18px; }
+.start-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.start-row .muted { margin-right: 4px; }
+.start-row .chip, .chip-row .chip { padding: 10px 12px; }
+.len-label { align-self: center; margin-right: 4px; }
+.chip-hot { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 700; }

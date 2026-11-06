@@ -43,12 +43,15 @@ let dbP;
 function db() {
   if (!dbP) {
     dbP = new Promise((res, rej) => {
-      const r = indexedDB.open(DB_NAME, 1);
+      const r = indexedDB.open(DB_NAME, 2);
       r.onupgradeneeded = () => {
         const d = r.result;
-        d.createObjectStore('songs', { keyPath: 'id' });
-        const t = d.createObjectStore('takes', { keyPath: 'id' });
-        t.createIndex('songId', 'songId');
+        if (!d.objectStoreNames.contains('songs')) d.createObjectStore('songs', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('takes')) {
+          const t = d.createObjectStore('takes', { keyPath: 'id' });
+          t.createIndex('songId', 'songId');
+        }
+        if (!d.objectStoreNames.contains('templates')) d.createObjectStore('templates', { keyPath: 'id' });
       };
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
@@ -69,7 +72,12 @@ const putSong = (s) => idb('songs', 'readwrite', (st) => st.put(s));
 const getSong = (id) => idb('songs', 'readonly', (st) => st.get(id));
 const putTake = (t) => idb('takes', 'readwrite', (st) => st.put(t));
 const delTake = (id) => idb('takes', 'readwrite', (st) => st.delete(id));
+const delSong = (id) => idb('songs', 'readwrite', (st) => st.delete(id));
 const takesFor = (songId) => idb('takes', 'readonly', (st) => st.index('songId').getAll(songId));
+const putTemplate = (t) => idb('templates', 'readwrite', (st) => st.put(t));
+const getTemplate = (id) => idb('templates', 'readonly', (st) => st.get(id));
+const delTemplate = (id) => idb('templates', 'readwrite', (st) => st.delete(id));
+const allTemplates = () => idb('templates', 'readonly', (st) => st.getAll());
 
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('ls_' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -85,6 +93,8 @@ const DEFAULT_PROFILES = {
 const S = {
   ctx: null,
   song: null, // {id, name, blob, buffer, peaks, selStart, selEnd}
+  templateId: null, // aktuell geladene Vorlage
+  templatesCache: [],
   profiles: Object.assign(structuredClone(DEFAULT_PROFILES), LS.get('profiles', {})),
   profileId: LS.get('profileId', 'bt'),
   preroll: LS.get('preroll', 2),
@@ -180,7 +190,9 @@ $('song-input').addEventListener('change', async (e) => {
   try {
     await ensureCtx();
     toast('Song wird geladen …');
+    S.templateId = null; LS.set('templateId', null);
     await loadSong({ id: 'song-' + Date.now(), name: file.name.replace(/\.[^.]+$/, ''), blob: file, selStart: null, selEnd: null }, true);
+    toast('Startpunkt wählen und als Vorlage speichern');
   } catch (err) {
     console.error(err);
     toast('Diese Datei konnte nicht gelesen werden. Versuch MP3, WAV oder M4A.');
@@ -209,6 +221,7 @@ async function loadSong(rec, isNew) {
   renderHome();
   drawWave();
   await renderTakes();
+  await renderTemplates();
 }
 
 let saveSelTimer;
@@ -226,7 +239,11 @@ function renderHome() {
   $('song-area').hidden = !has;
   if (has) {
     const s = S.song;
-    $('song-title').textContent = s.name;
+    const tpl = S.templateId && S.templatesCache.find((t) => t.id === S.templateId);
+    $('hero-eyebrow').textContent = tpl ? `Vorlage · ${s.name}` : 'Heute performst du';
+    $('song-title').textContent = tpl ? tpl.name : s.name;
+    $('btn-save-template').textContent = tpl ? (tpl.selStart === s.selStart && tpl.selEnd === s.selEnd ? 'Vorlage gespeichert ✓' : 'Vorlage aktualisieren') : 'Als Vorlage speichern';
+    $('btn-save-as-new').hidden = !tpl;
     $('song-sel-label').textContent = `Ausschnitt ${fmt(s.selStart)} – ${fmt(s.selEnd)}`;
     $('sel-start').textContent = fmt(s.selStart);
     $('sel-end').textContent = fmt(s.selEnd);
@@ -331,26 +348,53 @@ const listen = {
     this.src = null; this.playing = false;
     $('btn-listen').textContent = 'Anhören';
     $('btn-listen').classList.remove('on');
+    $('btn-set-start').hidden = true;
     drawWave();
   },
 };
-$('btn-listen').addEventListener('click', async () => {
-  if (listen.playing) return listen.stop();
+$('btn-listen').addEventListener('click', () => (listen.playing ? listen.stop() : startListen(S.song.selStart, S.song.selEnd)));
+$('btn-listen-before').addEventListener('click', () => {
+  if (listen.playing) listen.stop();
+  const s = S.song;
+  startListen(Math.max(0, s.selStart - 5), s.buffer.duration);
+});
+$('btn-set-start').addEventListener('click', () => {
+  if (!listen.playing) return;
+  const s = S.song;
+  const len = s.selEnd - s.selStart;
+  // Wahrgenommene Position: Ausgabe-Latenz des Kopfhörers abziehen
+  const heard = listen.pos() - profileLatency() / 1000;
+  s.selStart = clamp(heard, 0, Math.max(0, s.buffer.duration - 3));
+  s.selEnd = Math.min(s.buffer.duration, s.selStart + len);
+  listen.stop();
+  renderHome(); drawWave(); persistSel();
+  toast(`Start auf ${fmt(s.selStart)} gesetzt`);
+});
+document.querySelectorAll('[data-nudge]').forEach((b) => b.addEventListener('click', () => {
+  const s = S.song; if (!s) return;
+  const d = Number(b.dataset.nudge);
+  const len = s.selEnd - s.selStart;
+  s.selStart = clamp(Math.round((s.selStart + d) * 10) / 10, 0, Math.max(0, s.buffer.duration - 3));
+  s.selEnd = Math.min(s.buffer.duration, s.selStart + len);
+  renderHome(); drawWave(); persistSel();
+}));
+async function startListen(from, to) {
   const ctx = await ensureCtx();
   const s = S.song;
   const src = ctx.createBufferSource();
   src.buffer = s.buffer;
   src.connect(ctx.destination);
   listen.t0 = ctx.currentTime + 0.05;
-  listen.from = s.selStart;
-  src.start(listen.t0, s.selStart, s.selEnd - s.selStart);
+  listen.from = from;
+  src.start(listen.t0, from, to - from);
   src.onended = () => { if (listen.src === src) listen.stop(); };
   listen.src = src; listen.playing = true;
   $('btn-listen').textContent = 'Stopp';
   $('btn-listen').classList.add('on');
+  $('btn-set-start').hidden = false;
   const tick = () => { if (!listen.playing) return; drawWave(); requestAnimationFrame(tick); };
   tick();
-});
+}
 
 // Optionen
 $('chip-preroll').addEventListener('click', () => {
@@ -382,6 +426,86 @@ $('tile-profile').addEventListener('click', () => {
 $('sheet-profile').addEventListener('click', (e) => {
   if (e.target === e.currentTarget || e.target.hasAttribute('data-close')) $('sheet-profile').hidden = true;
 });
+
+// ------------------------------------------------------------------ Vorlagen
+async function renderTemplates() {
+  let list = [];
+  try { list = (await allTemplates()) || []; } catch {}
+  list.sort((a, b) => (b.usedAt || b.createdAt) - (a.usedAt || a.createdAt));
+  S.templatesCache = list;
+  $('templates-section').hidden = list.length === 0 && !S.song;
+  const ul = $('templates-list');
+  ul.innerHTML = '';
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'muted small';
+    li.textContent = 'Noch keine Vorlagen – Song laden, Start wählen, speichern.';
+    ul.append(li);
+  }
+  for (const t of list) {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.className = 'tpl' + (t.id === S.templateId ? ' on' : '');
+    const n = document.createElement('span'); n.className = 'tpl-name'; n.textContent = t.name;
+    const sub = document.createElement('span'); sub.className = 'tpl-sub';
+    sub.textContent = `${t.songName} · ab ${fmt(t.selStart)} · ${Math.round(t.selEnd - t.selStart)} s`;
+    b.append(n, sub);
+    b.addEventListener('click', () => openTemplate(t.id));
+    const del = document.createElement('button');
+    del.className = 'tpl-del';
+    del.setAttribute('aria-label', `Vorlage ${t.name} löschen`);
+    del.textContent = '✕';
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Vorlage „${t.name}“ löschen?`)) return;
+      await delTemplate(t.id);
+      if (S.templateId === t.id) { S.templateId = null; LS.set('templateId', null); }
+      await renderTemplates(); renderHome();
+    });
+    li.append(b, del);
+    ul.append(li);
+  }
+  renderHome();
+}
+
+async function openTemplate(id) {
+  if (listen.playing) listen.stop();
+  const t = await getTemplate(id);
+  if (!t) return;
+  const song = await getSong(t.songId);
+  if (!song) { toast('Die Song-Datei dieser Vorlage fehlt.'); return; }
+  t.usedAt = Date.now(); putTemplate(t);
+  S.templateId = id; LS.set('templateId', id);
+  if (S.song && S.song.id === song.id) {
+    S.song.selStart = t.selStart; S.song.selEnd = t.selEnd;
+    persistSel(); renderHome(); drawWave(); await renderTemplates();
+  } else {
+    await loadSong({ ...song, selStart: t.selStart, selEnd: t.selEnd }, false);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveTemplate(asNew) {
+  const s = S.song; if (!s) return;
+  const existing = !asNew && S.templateId && (await getTemplate(S.templateId));
+  if (existing) {
+    existing.selStart = s.selStart; existing.selEnd = s.selEnd; existing.usedAt = Date.now();
+    await putTemplate(existing);
+    toast('Vorlage aktualisiert');
+  } else {
+    const def = `${s.name} · ab ${fmt(s.selStart)}`;
+    const name = (prompt('Name der Vorlage (z. B. „Hook“, „Strophe 2“):', def) || '').trim();
+    if (!name) return;
+    const t = { id: 'tpl-' + Date.now(), name, songId: s.id, songName: s.name, selStart: s.selStart, selEnd: s.selEnd, createdAt: Date.now(), usedAt: Date.now() };
+    await putSong({ id: s.id, name: s.name, blob: s.blob, selStart: s.selStart, selEnd: s.selEnd });
+    await putTemplate(t);
+    S.templateId = t.id; LS.set('templateId', t.id);
+    toast(`Vorlage „${name}“ gespeichert`);
+  }
+  await renderTemplates();
+}
+$('btn-save-template').addEventListener('click', () => saveTemplate(false));
+$('btn-save-as-new').addEventListener('click', () => saveTemplate(true));
 
 // ------------------------------------------------------------------ calibration (Tap-Test)
 const CAL = { lead: 4, count: 16, interval: 0.75 };
@@ -900,6 +1024,12 @@ $('btn-share').addEventListener('click', async () => {
 // ------------------------------------------------------------------ start
 (async function init() {
   renderHome();
+  await renderTemplates();
+  const tplId = LS.get('templateId', null);
+  if (tplId && (await getTemplate(tplId).catch(() => null))) {
+    try { await openTemplate(tplId); } catch (err) { console.warn(err); }
+    return registerSW();
+  }
   const id = LS.get('songId', null);
   if (id) {
     try {
@@ -907,10 +1037,13 @@ $('btn-share').addEventListener('click', async () => {
       if (rec) await loadSong(rec, false);
     } catch (err) { console.warn('Song konnte nicht geladen werden', err); }
   }
+  registerSW();
+})();
+function registerSW() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-})();
+}
 
 // Für Tests
-window.__ls = { S, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };
+window.__ls = { S, saveTemplate, openTemplate, allTemplates, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };
