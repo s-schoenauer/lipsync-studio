@@ -1,5 +1,5 @@
 // Einfacher Offline-Cache: erst Netz, bei Fehler Cache.
-const CACHE = 'lipsync-studio-v3';
+const CACHE = 'lipsync-studio-v4';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './vendor/mediabunny.min.mjs', './vendor/mediabunny-aac-encoder.min.mjs',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',

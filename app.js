@@ -122,7 +122,8 @@ function makeCtx() {
 }
 async function ensureCtx() {
   makeCtx();
-  if (S.ctx.state !== 'running') await S.ctx.resume();
+  // resume() kann auf iOS ohne frische Nutzer-Geste ewig hängen -> mit Timeout
+  if (S.ctx.state !== 'running') await Promise.race([S.ctx.resume().catch(() => {}), sleep(1500)]);
   // kurz warten, bis die Ausgabe-Uhr läuft (für getOutputTimestamp)
   for (let i = 0; i < 20 && S.ctx.currentTime < 0.05; i++) await sleep(20);
   return S.ctx;
@@ -185,19 +186,27 @@ document.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('clic
 // ------------------------------------------------------------------ song
 $('song-input').addEventListener('change', async (e) => {
   const file = e.target.files && e.target.files[0];
-  e.target.value = '';
   if (!file) return;
+  toast('Song wird geladen …', 60000);
   try {
-    await ensureCtx();
-    toast('Song wird geladen …');
+    // Datei sofort komplett in den Speicher holen (iOS-Dateien können sonst später unlesbar werden)
+    const data = await file.arrayBuffer();
+    e.target.value = '';
+    const blob = new Blob([data], { type: file.type || guessType(file.name) });
+    makeCtx(); // NICHT auf resume() warten: nach dem Datei-Dialog erlaubt iOS das nicht und es hängt
     S.templateId = null; LS.set('templateId', null);
-    await loadSong({ id: 'song-' + Date.now(), name: file.name.replace(/\.[^.]+$/, ''), blob: file, selStart: null, selEnd: null }, true);
-    toast('Startpunkt wählen und als Vorlage speichern');
+    await loadSong({ id: 'song-' + Date.now(), name: file.name.replace(/\.[^.]+$/, ''), blob, selStart: null, selEnd: null }, true);
+    toast('Geladen! Startpunkt wählen und als Vorlage speichern', 3500);
   } catch (err) {
     console.error(err);
-    toast('Diese Datei konnte nicht gelesen werden. Unterstützt: MP3, WAV, M4A, AIFF, FLAC.', 4000);
+    e.target.value = '';
+    toast(`Datei konnte nicht gelesen werden (${(err && (err.name || err.message)) || 'Fehler'}). Unterstützt: MP3, WAV, M4A, AIFF, FLAC.`, 6000);
   }
 });
+function guessType(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return { mp3: 'audio/mpeg', wav: 'audio/wav', wave: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', aif: 'audio/aiff', aiff: 'audio/aiff', flac: 'audio/flac' }[ext] || '';
+}
 
 async function decode(blob) {
   const ctx = makeCtx();
@@ -246,7 +255,10 @@ async function loadSong(rec, isNew) {
   }
   S.song = { ...rec, buffer, peaks: computePeaks(buffer) };
   LS.set('songId', rec.id);
-  if (isNew) await putSong({ id: rec.id, name: rec.name, blob: rec.blob, selStart: rec.selStart, selEnd: rec.selEnd });
+  if (isNew) {
+    try { await putSong({ id: rec.id, name: rec.name, blob: rec.blob, selStart: rec.selStart, selEnd: rec.selEnd }); }
+    catch (err) { console.warn(err); toast('Song geladen, aber nicht dauerhaft gespeichert (Speicher voll / privater Modus?).', 5000); }
+  }
   renderHome();
   drawWave();
   await renderTakes();
