@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#170A1C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lipsync Studio">
+<title>Lipsync Studio</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== HOME ===== -->
+<main id="screen-home" class="screen active">
+  <header class="topbar">
+    <span class="brand">Lipsync Studio</span>
+  </header>
+
+  <!-- Kein Song -->
+  <section id="empty-song" class="hero-card">
+    <span class="eyebrow">Los geht's</span>
+    <span class="hero-title">Lade deinen Song</span>
+    <span class="hero-sub">MP3, WAV oder M4A. Die Datei bleibt auf deinem Handy.</span>
+    <label class="btn btn-dark" for="song-input">Song wählen</label>
+  </section>
+
+  <!-- Song geladen -->
+  <section id="song-area" hidden>
+    <div class="hero-card">
+      <span class="eyebrow">Heute performst du</span>
+      <span id="song-title" class="hero-title">–</span>
+      <span id="song-sel-label" class="hero-sub">–</span>
+      <label class="link-dark" for="song-input">Anderen Song wählen</label>
+    </div>
+
+    <div class="wave-wrap">
+      <canvas id="wave" aria-label="Wellenform. Ziehe die Griffe, um den Ausschnitt zu wählen."></canvas>
+      <div class="wave-times">
+        <span id="sel-start">0:00</span>
+        <strong id="sel-len">0 Sekunden</strong>
+        <span id="sel-end">0:00</span>
+      </div>
+      <div class="chip-row">
+        <button class="chip" data-len="15">15 s</button>
+        <button class="chip" data-len="20">20 s</button>
+        <button class="chip" data-len="30">30 s</button>
+        <button class="chip" id="btn-listen">Anhören</button>
+      </div>
+    </div>
+
+    <div class="tile-row">
+      <button id="tile-profile" class="tile">
+        <span class="tile-label">Im Ohr</span>
+        <span id="profile-name" class="tile-value">AirPods</span>
+      </button>
+      <button id="tile-latency" class="tile tile-sec">
+        <span class="tile-label">Versatz</span>
+        <span id="latency-value" class="tile-value">messen</span>
+      </button>
+    </div>
+
+    <div class="chip-row">
+      <button class="chip" id="chip-preroll">Vorlauf 2 s</button>
+      <button class="chip" id="chip-mirror">Spiegeln an</button>
+    </div>
+
+    <div class="go-wrap">
+      <button id="btn-go" class="go" aria-label="Aufnahme vorbereiten">LOS!</button>
+    </div>
+
+    <section id="takes-section" hidden>
+      <h2 class="section-title">Deine Takes</h2>
+      <ul id="takes-list" class="takes"></ul>
+    </section>
+  </section>
+
+  <input id="song-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac" hidden>
+  <p class="foot">Alles läuft lokal in deinem Browser. Nichts wird hochgeladen.</p>
+</main>
+
+<!-- ===== PROFIL-AUSWAHL ===== -->
+<div id="sheet-profile" class="sheet" hidden>
+  <div class="sheet-card">
+    <h2 class="sheet-title">Was hast du im Ohr?</h2>
+    <div id="profile-options" class="profile-options"></div>
+    <button class="btn btn-ghost" data-close>Fertig</button>
+  </div>
+</div>
+
+<!-- ===== KALIBRIEREN ===== -->
+<main id="screen-calib" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" data-back aria-label="Zurück">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <span id="calib-profile" class="muted">AirPods</span>
+  </header>
+  <h1 class="big-title">Tipp mit<br>dem Beat</h1>
+  <p id="calib-help" class="muted lead">Kopfhörer rein, Augen zu und auf die große Fläche tippen, wann immer es klickt. Die ersten 4 Klicks sind zum Reinkommen.</p>
+  <button id="tap-pad" class="tap-pad">
+    <span id="tap-count" class="tap-count">Start</span>
+    <span id="tap-sub" class="muted">tippen zum Starten</span>
+  </button>
+  <div id="calib-result" class="result-bar" hidden>
+    <span id="calib-result-text">–</span>
+    <span id="calib-result-sub">–</span>
+  </div>
+  <div id="calib-actions" class="row-actions" hidden>
+    <button id="calib-retry" class="btn btn-ghost">Nochmal</button>
+    <button id="calib-accept" class="btn btn-pink">Übernehmen</button>
+  </div>
+</main>
+
+<!-- ===== AUFNAHME ===== -->
+<main id="screen-record" class="screen screen-full">
+  <video id="cam" playsinline muted autoplay></video>
+  <div class="frame-guide" aria-hidden="true"></div>
+  <div id="countdown" class="countdown" hidden>3</div>
+  <div class="rec-top">
+    <span id="rec-status" class="pill">Bereit</span>
+    <span id="rec-time" class="pill tabular">0 s</span>
+  </div>
+  <div class="rec-progress"><div id="rec-bar"></div></div>
+  <div class="rec-bottom">
+    <button id="rec-cancel" class="pill pill-btn">Abbrechen</button>
+    <button id="rec-btn" class="rec-btn" aria-label="Aufnahme starten"><span></span></button>
+    <span id="rec-mode" class="pill">ohne Mikro</span>
+  </div>
+</main>
+
+<!-- ===== SYNC & EXPORT ===== -->
+<main id="screen-sync" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="sync-back" aria-label="Zurück">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <span id="sync-take-name" class="muted">Take</span>
+  </header>
+
+  <div class="sync-top">
+    <div class="preview-box">
+      <canvas id="preview" width="360" height="640"></canvas>
+      <button id="preview-play" class="play-btn" aria-label="Vorschau abspielen">
+        <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+    <div class="sync-side">
+      <span class="side-title">Sitzt der Take?</span>
+      <span class="muted small">Achte auf p, b und m – da sieht man jeden Versatz. Am genauesten prüfst du über den Lautsprecher.</span>
+    </div>
+  </div>
+
+  <div class="offset-card">
+    <div class="offset-row">
+      <button class="round-btn" id="off-minus" aria-label="10 ms früher">−</button>
+      <div class="offset-mid">
+        <span id="offset-value" class="offset-value tabular">0</span>
+        <span class="muted small">ms Versatz</span>
+      </div>
+      <button class="round-btn" id="off-plus" aria-label="10 ms später">+</button>
+    </div>
+    <div class="offset-labels muted small"><span>Lippen zu früh</span><span>Lippen zu spät</span></div>
+    <div class="chip-row center">
+      <button class="chip" id="off-frame-minus">−1 Frame</button>
+      <button class="chip" id="off-reset">Messwert</button>
+      <button class="chip" id="off-frame-plus">+1 Frame</button>
+    </div>
+    <button id="off-save" class="link-light">Diesen Wert für „<span id="off-save-profile">AirPods</span>“ merken</button>
+  </div>
+
+  <div id="export-status" class="export-status" hidden>
+    <div class="progress"><div id="export-bar"></div></div>
+    <span id="export-text" class="muted small">Export läuft …</span>
+  </div>
+
+  <div class="stack-actions">
+    <button id="btn-retake" class="btn btn-ghost">Nochmal aufnehmen</button>
+    <button id="btn-export" class="btn btn-pink btn-big">Video exportieren</button>
+    <button id="btn-share" class="btn btn-sec btn-big" hidden>Teilen / In Fotos sichern</button>
+    <a id="btn-download" class="btn btn-ghost" hidden download>Datei herunterladen</a>
+  </div>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="importmap">{ "imports": { "mediabunny": "./vendor/mediabunny.min.mjs" } }</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

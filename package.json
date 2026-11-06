@@ -1,0 +1,16 @@
+{
+  "name": "lipsync-studio",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mediabunny/aac-encoder": "^1.65.2",
+    "mediabunny": "^1.65.2"
+  }
+}
