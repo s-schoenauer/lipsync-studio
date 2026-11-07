@@ -82,6 +82,18 @@
       </div>
     </div>
 
+    <details id="mark-home" class="mark-card">
+      <summary><span>Sync-Marker <span class="muted small">(optional)</span></span><span id="mark-home-val" class="muted small">nicht gesetzt</span></summary>
+      <span class="muted small">Setz einmal einen markanten Moment im Original (p, b, m oder Snare). Nach jeder Aufnahme musst du dann nur den passenden Frame im Video markieren.</span>
+      <canvas id="mark-home-wave" class="mk-wave" aria-label="Song-Wellenform mit Marker. Ziehen zum Verschieben, tippen zum Setzen."></canvas>
+      <div class="chip-row center">
+        <button class="chip" id="mh-minus">−10 ms</button>
+        <button class="chip" id="mh-listen">Anhören</button>
+        <button class="chip" id="mh-plus">+10 ms</button>
+        <button class="chip" id="mh-clear">Entfernen</button>
+      </div>
+    </details>
+
     <div class="tile-row">
       <button id="tile-profile" class="tile">
         <span class="tile-label">Im Ohr</span>
@@ -171,18 +183,55 @@
     <span id="sync-take-name" class="muted">Take</span>
   </header>
 
-  <div class="sync-top">
+  <div class="preview-wrap">
     <div class="preview-box">
       <canvas id="preview" width="360" height="640"></canvas>
       <button id="preview-play" class="play-btn" aria-label="Vorschau abspielen">
         <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
       </button>
     </div>
-    <div class="sync-side">
-      <span class="side-title">Sitzt der Take?</span>
-      <span class="muted small">Achte auf p, b und m – da sieht man jeden Versatz. Am genauesten prüfst du über den Lautsprecher.</span>
-    </div>
   </div>
+
+  <div class="transport">
+    <div class="transport-times tabular small"><span id="t-cur">0:00.0</span><span id="t-dur">0:00.0</span></div>
+    <input id="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Position im Video">
+    <div class="transport-btns">
+      <button id="tr-back" class="tr-btn" aria-label="1 Sekunde zurück">−1 s</button>
+      <button id="tr-prev" class="tr-btn" aria-label="1 Frame zurück"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button id="tr-play" class="tr-btn tr-play" aria-label="Abspielen"><svg id="tr-play-icon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <button id="tr-next" class="tr-btn" aria-label="1 Frame vor"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+      <button id="tr-fwd" class="tr-btn" aria-label="1 Sekunde vor">+1 s</button>
+    </div>
+    <span class="muted small hint">Achte auf p, b und m – da sieht man jeden Versatz. Am genauesten prüfst du über den Lautsprecher.</span>
+  </div>
+
+  <details id="mk-card" class="mark-card">
+    <summary><span>Per Marker synchronisieren</span><span id="mk-summary" class="muted small"></span></summary>
+    <div class="mk-step">
+      <span class="mk-num">1</span>
+      <div class="mk-body">
+        <strong>Song-Marker</strong>
+        <span id="mk-a-help" class="muted small">Zieh die Welle, bis der Strich genau auf einem markanten Laut liegt (p, b, m, Snare). Wird in der Vorlage gespeichert – nur einmal nötig.</span>
+      </div>
+    </div>
+    <canvas id="mk-wave" class="mk-wave" aria-label="Song-Wellenform mit Marker. Ziehen zum Verschieben, tippen zum Setzen."></canvas>
+    <div class="chip-row center">
+      <button class="chip" id="mk-a-minus">−10 ms</button>
+      <button class="chip" id="mk-a-listen">Anhören</button>
+      <button class="chip" id="mk-a-plus">+10 ms</button>
+    </div>
+    <span id="mk-a-val" class="small muted center-text"></span>
+    <div class="mk-step">
+      <span class="mk-num">2</span>
+      <div class="mk-body">
+        <strong>Video-Marker</strong>
+        <span class="muted small">Spul oben Frame für Frame zu genau dem Moment im Video, in dem du diesen Laut machst.</span>
+        <button id="mk-set-video" class="btn btn-ghost btn-small">Video-Marker hier setzen</button>
+        <span id="mk-v-val" class="small muted"></span>
+      </div>
+    </div>
+    <button id="mk-apply" class="btn btn-pink" disabled>Synchronisieren</button>
+  </details>
 
   <div class="offset-card">
     <div class="offset-row">
@@ -194,6 +243,7 @@
       <button class="round-btn" id="off-plus" aria-label="10 ms später">+</button>
     </div>
     <div class="offset-labels muted small"><span>Lippen zu früh</span><span>Lippen zu spät</span></div>
+    <span class="muted small center-text">Feinjustieren – auch nach dem Marker-Sync</span>
     <div class="chip-row center">
       <button class="chip" id="off-frame-minus">−1 Frame</button>
       <button class="chip" id="off-reset">Messwert</button>

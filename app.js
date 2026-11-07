@@ -33,6 +33,13 @@ function toast(msg, ms = 2600) {
   toastTimer = setTimeout(() => (el.hidden = true), ms);
 }
 
+const fmtPrecise = (t) => {
+  t = Math.max(0, t);
+  const m = Math.floor(t / 60);
+  const s = t - m * 60;
+  return `${m}:${s.toFixed(2).padStart(5, '0')}`;
+};
+
 const FPS = 30;
 const OUT_W = 1080;
 const OUT_H = 1920;
@@ -256,7 +263,7 @@ async function loadSong(rec, isNew) {
   S.song = { ...rec, buffer, peaks: computePeaks(buffer) };
   LS.set('songId', rec.id);
   if (isNew) {
-    try { await putSong({ id: rec.id, name: rec.name, blob: rec.blob, selStart: rec.selStart, selEnd: rec.selEnd }); }
+    try { await putSong({ id: rec.id, name: rec.name, blob: rec.blob, selStart: rec.selStart, selEnd: rec.selEnd, markAbs: rec.markAbs ?? null }); }
     catch (err) { console.warn(err); toast('Song geladen, aber nicht dauerhaft gespeichert (Speicher voll / privater Modus?).', 5000); }
   }
   renderHome();
@@ -270,7 +277,7 @@ function persistSel() {
   clearTimeout(saveSelTimer);
   saveSelTimer = setTimeout(() => {
     const s = S.song;
-    if (s) putSong({ id: s.id, name: s.name, blob: s.blob, selStart: s.selStart, selEnd: s.selEnd });
+    if (s) putSong({ id: s.id, name: s.name, blob: s.blob, selStart: s.selStart, selEnd: s.selEnd, markAbs: s.markAbs ?? null });
   }, 400);
 }
 
@@ -283,7 +290,7 @@ function renderHome() {
     const tpl = S.templateId && S.templatesCache.find((t) => t.id === S.templateId);
     $('hero-eyebrow').textContent = tpl ? `Vorlage · ${s.name}` : 'Heute performst du';
     $('song-title').textContent = tpl ? tpl.name : s.name;
-    $('btn-save-template').textContent = tpl ? (tpl.selStart === s.selStart && tpl.selEnd === s.selEnd ? 'Vorlage gespeichert ✓' : 'Vorlage aktualisieren') : 'Als Vorlage speichern';
+    $('btn-save-template').textContent = tpl ? (tpl.selStart === s.selStart && tpl.selEnd === s.selEnd && (tpl.markAbs ?? null) === (s.markAbs ?? null) ? 'Vorlage gespeichert ✓' : 'Vorlage aktualisieren') : 'Als Vorlage speichern';
     $('btn-save-as-new').hidden = !tpl;
     $('song-sel-label').textContent = `Ausschnitt ${fmt(s.selStart)} – ${fmt(s.selEnd)}`;
     $('sel-start').textContent = fmt(s.selStart);
@@ -293,6 +300,10 @@ function renderHome() {
   const p = profile();
   $('profile-name').textContent = p.short;
   $('latency-value').textContent = p.latencyMs != null ? `${Math.round(p.latencyMs)} ms ✓` : 'messen';
+  if (has) {
+    const m = S.song.markAbs;
+    $('mark-home-val').textContent = m != null ? `bei ${fmtPrecise(m)}` : 'nicht gesetzt';
+  }
   $('chip-preroll').textContent = `Vorlauf ${S.preroll} s`;
   $('chip-mirror').textContent = S.mirror ? 'Spiegeln an' : 'Spiegeln aus';
   $('chip-mirror').classList.toggle('on', S.mirror);
@@ -302,6 +313,7 @@ function renderHome() {
 const wave = $('wave');
 function drawWave() {
   if (!S.song) return;
+  homeMarker.draw();
   const dpr = window.devicePixelRatio || 1;
   const w = wave.clientWidth, h = wave.clientHeight;
   if (wave.width !== Math.round(w * dpr)) { wave.width = Math.round(w * dpr); wave.height = Math.round(h * dpr); }
@@ -518,10 +530,10 @@ async function openTemplate(id) {
   t.usedAt = Date.now(); putTemplate(t);
   S.templateId = id; LS.set('templateId', id);
   if (S.song && S.song.id === song.id) {
-    S.song.selStart = t.selStart; S.song.selEnd = t.selEnd;
+    S.song.selStart = t.selStart; S.song.selEnd = t.selEnd; S.song.markAbs = t.markAbs ?? null;
     persistSel(); renderHome(); drawWave(); await renderTemplates();
   } else {
-    await loadSong({ ...song, selStart: t.selStart, selEnd: t.selEnd }, false);
+    await loadSong({ ...song, selStart: t.selStart, selEnd: t.selEnd, markAbs: t.markAbs ?? null }, false);
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -530,15 +542,15 @@ async function saveTemplate(asNew) {
   const s = S.song; if (!s) return;
   const existing = !asNew && S.templateId && (await getTemplate(S.templateId));
   if (existing) {
-    existing.selStart = s.selStart; existing.selEnd = s.selEnd; existing.usedAt = Date.now();
+    existing.selStart = s.selStart; existing.selEnd = s.selEnd; existing.markAbs = s.markAbs ?? null; existing.usedAt = Date.now();
     await putTemplate(existing);
     toast('Vorlage aktualisiert');
   } else {
     const def = `${s.name} · ab ${fmt(s.selStart)}`;
     const name = (prompt('Name der Vorlage (z. B. „Hook“, „Strophe 2“):', def) || '').trim();
     if (!name) return;
-    const t = { id: 'tpl-' + Date.now(), name, songId: s.id, songName: s.name, selStart: s.selStart, selEnd: s.selEnd, createdAt: Date.now(), usedAt: Date.now() };
-    await putSong({ id: s.id, name: s.name, blob: s.blob, selStart: s.selStart, selEnd: s.selEnd });
+    const t = { id: 'tpl-' + Date.now(), name, songId: s.id, songName: s.name, selStart: s.selStart, selEnd: s.selEnd, markAbs: s.markAbs ?? null, createdAt: Date.now(), usedAt: Date.now() };
+    await putSong({ id: s.id, name: s.name, blob: s.blob, selStart: s.selStart, selEnd: s.selEnd, markAbs: s.markAbs ?? null });
     await putTemplate(t);
     S.templateId = t.id; LS.set('templateId', t.id);
     toast(`Vorlage „${name}“ gespeichert`);
@@ -775,6 +787,7 @@ async function startRecording() {
     prerollActual,
     selStart: s.selStart,
     selEnd: s.selEnd,
+    markAbs: s.markAbs ?? null,
     mirror: S.mirror,
     profileId: S.profileId,
     latencyMs: profileLatency(p),
@@ -838,15 +851,168 @@ async function renderTakes() {
   });
 }
 
+// ------------------------------------------------------------------ Marker-Wellenform (Song-Marker setzen)
+// Zeigt ein 3-s-Fenster des Songs um den Marker. Ziehen verschiebt, Tippen setzt.
+class MarkerWave {
+  constructor(canvas, { get, set, range, onChange }) {
+    this.canvas = canvas; this.get = get; this.set = set; this.range = range; this.onChange = onChange;
+    this.win = 3; this.playhead = null;
+    let down = null;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (this.get() == null) return;
+      canvas.setPointerCapture(e.pointerId);
+      down = { x: e.offsetX, m: this.get(), moved: false };
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!down) return;
+      const dx = e.offsetX - down.x;
+      if (Math.abs(dx) > 4) down.moved = true;
+      if (down.moved) this.setClamped(down.m - (dx / canvas.clientWidth) * this.win);
+    });
+    canvas.addEventListener('pointerup', (e) => {
+      if (down && !down.moved) {
+        const m = this.get();
+        this.setClamped(m - this.win / 2 + (e.offsetX / canvas.clientWidth) * this.win);
+      }
+      down = null;
+      this.onChange && this.onChange(true);
+    });
+    canvas.addEventListener('pointercancel', () => { down = null; });
+    window.addEventListener('resize', () => this.draw());
+  }
+  setClamped(v) {
+    const [a, b] = this.range();
+    this.set(clamp(v, a, b));
+    this.draw();
+    this.onChange && this.onChange(false);
+  }
+  nudge(d) { if (this.get() != null) { this.setClamped(this.get() + d); this.onChange && this.onChange(true); } }
+  draw() {
+    const c = this.canvas;
+    if (!c.clientWidth || !S.song) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+    const g = c.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const m = this.get();
+    if (m == null) return;
+    const css = getComputedStyle(document.documentElement);
+    const accent = css.getPropertyValue('--accent').trim();
+    const line = css.getPropertyValue('--line').trim();
+    const ter = css.getPropertyValue('--ter').trim();
+    const sec = css.getPropertyValue('--sec').trim();
+    const buf = S.song.buffer, sr = buf.sampleRate;
+    const ch0 = buf.getChannelData(0), ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+    const [ra, rb] = this.range();
+    const t0 = m - this.win / 2;
+    const cols = Math.floor(w / 3);
+    const peaks = new Float32Array(cols);
+    let max = 1e-6;
+    for (let i = 0; i < cols; i++) {
+      const a = Math.floor((t0 + (i / cols) * this.win) * sr);
+      const b = Math.floor((t0 + ((i + 1) / cols) * this.win) * sr);
+      let p = 0;
+      for (let j = Math.max(0, a); j < Math.min(ch0.length, b); j += 4) {
+        const v = Math.abs(ch0[j]) + (ch1 ? Math.abs(ch1[j]) : 0);
+        if (v > p) p = v;
+      }
+      peaks[i] = p; if (p > max) max = p;
+    }
+    for (let i = 0; i < cols; i++) {
+      const t = t0 + ((i + 0.5) / cols) * this.win;
+      const bh = Math.max(2, (peaks[i] / max) * (h - 14));
+      g.fillStyle = t >= ra && t <= rb ? accent : line;
+      g.globalAlpha = t >= ra && t <= rb ? 1 : 0.5;
+      g.fillRect(i * 3, (h - bh) / 2, 2, bh);
+    }
+    g.globalAlpha = 1;
+    // Zeitraster alle 0,5 s
+    g.fillStyle = line;
+    for (let k = Math.ceil(t0 * 2) / 2; k < t0 + this.win; k += 0.5) {
+      const x = ((k - t0) / this.win) * w;
+      g.fillRect(x, h - 6, 1, 6);
+    }
+    if (this.playhead != null) {
+      const x = ((this.playhead - t0) / this.win) * w;
+      g.fillStyle = sec; g.fillRect(x - 1, 0, 2, h);
+    }
+    g.fillStyle = ter;
+    g.fillRect(w / 2 - 1.5, 0, 3, h);
+    g.beginPath(); g.moveTo(w / 2 - 7, 0); g.lineTo(w / 2 + 7, 0); g.lineTo(w / 2, 8); g.fill();
+  }
+}
+
+// Song-Stück um einen Zeitpunkt anhören (mit laufendem Strich in der Welle)
+const snippet = {
+  src: null, raf: 0,
+  stop() { if (this.src) { try { this.src.stop(); } catch {} } this.src = null; cancelAnimationFrame(this.raf); },
+  async play(absT, wave) {
+    this.stop();
+    if (typeof preview !== 'undefined' && preview.playing) preview.stop();
+    if (listen.playing) listen.stop();
+    const ctx = await ensureCtx();
+    const from = Math.max(0, absT - 1.0), len = 1.4;
+    const src = ctx.createBufferSource();
+    src.buffer = S.song.buffer; src.connect(ctx.destination);
+    const T = ctx.currentTime + 0.05;
+    src.start(T, from, len);
+    this.src = src;
+    const outLat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
+    const tick = () => {
+      if (this.src !== src) { wave.playhead = null; wave.draw(); return; }
+      const p = from + (ctx.currentTime - T) - outLat;
+      wave.playhead = p >= from ? p : null;
+      wave.draw();
+      if (p < from + len) this.raf = requestAnimationFrame(tick);
+      else { wave.playhead = null; wave.draw(); this.src = null; }
+    };
+    tick();
+  },
+};
+
+// Home: Sync-Marker im Original setzen (gehört zur Vorlage)
+const homeMarker = new MarkerWave($('mark-home-wave'), {
+  get: () => (S.song ? S.song.markAbs ?? null : null),
+  set: (v) => { S.song.markAbs = v; },
+  range: () => [S.song.selStart, S.song.selEnd],
+  onChange: (done) => { renderHome(); if (done) persistSel(); },
+});
+$('mark-home').addEventListener('toggle', () => {
+  const s = S.song;
+  if ($('mark-home').open && s && s.markAbs == null) {
+    s.markAbs = Math.min(s.selEnd, s.selStart + Math.min(2, (s.selEnd - s.selStart) / 2));
+    persistSel(); renderHome();
+  }
+  requestAnimationFrame(() => homeMarker.draw());
+});
+$('mh-minus').addEventListener('click', () => homeMarker.nudge(-0.01));
+$('mh-plus').addEventListener('click', () => homeMarker.nudge(0.01));
+$('mh-listen').addEventListener('click', () => { if (S.song && S.song.markAbs != null) snippet.play(S.song.markAbs, homeMarker); });
+$('mh-clear').addEventListener('click', () => {
+  if (!S.song) return;
+  S.song.markAbs = null; persistSel(); renderHome(); homeMarker.draw();
+  $('mark-home').open = false;
+});
+
 // ------------------------------------------------------------------ take / sync
 // Zeit im Aufnahme-File, an der die Lippen zur Song-Position (selStart + u) passen.
 function fileTimeFor(take, u) {
   const L = (take.latencyMs + take.fineMs) / 1000;
   return take.firstTs + take.songStartInRec + take.prerollActual + u + L;
 }
+// Nutzbare Länge: Ausschnitt, aber nie länger als das aufgenommene Video
+function takeDur(t) {
+  const sel = t.selEnd - t.selStart;
+  const avail = t.fileEnd - fileTimeFor(t, 0) - 0.02;
+  return clamp(Math.min(sel, avail), 0.5, sel);
+}
+
+const mk = { v: null, a: null }; // v = Video-Frame (Datei-Zeit), a = Song-Marker (relativ zum Ausschnitt)
 
 async function openTake(take, num) {
-  preview.stop();
+  preview.stop(); snippet.stop();
   S.exportFile = null;
   $('btn-share').hidden = true;
   $('btn-download').hidden = true;
@@ -861,23 +1027,35 @@ async function openTake(take, num) {
   S.take.previewSink = new CanvasSink(vt, { width: 360, height: 640, fit: 'cover', flip: take.mirror, poolSize: 0 });
   $('sync-take-name').textContent = num ? `Take ${num}` : 'Neuer Take';
   $('off-save-profile').textContent = (S.profiles[take.profileId] || profile()).short;
+  // Marker: Song-Marker aus Take/Vorlage übernehmen
+  const abs = take.markAbs ?? (S.song && S.song.id === take.songId ? S.song.markAbs : null);
+  mk.v = null;
+  mk.a = abs != null && abs >= take.selStart && abs <= take.selEnd ? abs - take.selStart : null;
+  $('mk-card').open = mk.a != null;
   renderOffset();
+  renderMarkers();
+  preview.u = 0;
   show('screen-sync');
   await preview.drawAt(0);
+  requestAnimationFrame(() => syncMarker.draw());
 }
 
 function renderOffset() {
   const t = S.take; if (!t) return;
   $('offset-value').textContent = String(Math.round(t.latencyMs + t.fineMs));
+  preview.updateTransport();
 }
 async function changeOffset(delta) {
   const t = S.take; if (!t) return;
-  t.fineMs = clamp(t.fineMs + delta, -600, 600);
+  t.fineMs = clamp(t.fineMs + delta, -2000, 2000);
+  offsetChanged();
+  if (preview.playing) await preview.play(Math.max(0, preview.u - 1.5));
+  else preview.requestDraw(clamp(preview.u, 0, takeDur(t)));
+}
+function offsetChanged() {
   renderOffset();
   S.exportFile = null; $('btn-share').hidden = true; $('btn-download').hidden = true;
   persistTake();
-  if (preview.playing) await preview.play(Math.max(0, preview.u - 1.5));
-  else await preview.drawAt(preview.u || 0);
 }
 let persistTimer;
 function persistTake() {
@@ -900,39 +1078,68 @@ $('off-save').addEventListener('click', () => {
   saveProfiles(); renderHome();
   toast(`${p.short}: ${p.latencyMs} ms gemerkt`);
 });
-$('btn-retake').addEventListener('click', () => { preview.stop(); renderTakes(); $('btn-go').click(); });
-$('sync-back').addEventListener('click', () => { preview.stop(); renderTakes(); show('screen-home'); });
+$('btn-retake').addEventListener('click', () => { preview.stop(); snippet.stop(); renderTakes(); $('btn-go').click(); });
+$('sync-back').addEventListener('click', () => { preview.stop(); snippet.stop(); renderTakes(); show('screen-home'); });
 
-// Vorschau: Audio-Uhr ist der Taktgeber, Video-Frames folgen.
+// Vorschau: Audio-Uhr ist der Taktgeber, Video-Frames folgen. Ton endet mit dem Video.
 const preview = {
-  playing: false, token: 0, src: null, u: 0,
+  playing: false, token: 0, src: null, u: 0, frameTs: null,
+  drawing: false, pendingU: null,
   canvas: $('preview'),
   async drawAt(u) {
     const t = S.take; if (!t) return;
+    this.u = u;
     const wc = await t.previewSink.getCanvas(Math.max(t.firstTs, fileTimeFor(t, u)));
-    if (wc) this.canvas.getContext('2d').drawImage(wc.canvas, 0, 0, this.canvas.width, this.canvas.height);
+    if (wc) {
+      this.canvas.getContext('2d').drawImage(wc.canvas, 0, 0, this.canvas.width, this.canvas.height);
+      this.frameTs = wc.timestamp;
+    }
+    this.updateTransport();
+  },
+  async requestDraw(u) {
+    this.u = u; this.updateTransport();
+    this.pendingU = u;
+    if (this.drawing) return;
+    this.drawing = true;
+    try {
+      while (this.pendingU != null) { const x = this.pendingU; this.pendingU = null; await this.drawAt(x); }
+    } finally { this.drawing = false; }
+  },
+  updateTransport() {
+    const t = S.take; if (!t) return;
+    const dur = takeDur(t);
+    const sc = $('scrub');
+    sc.max = String(Math.round(dur * 1000));
+    if (!scrubbing) sc.value = String(Math.round(clamp(this.u, 0, dur) * 1000));
+    $('t-cur').textContent = fmtPrecise(clamp(this.u, 0, dur));
+    $('t-dur').textContent = fmtPrecise(dur);
+  },
+  setPlayingUi(on) {
+    $('preview-play').classList.toggle('playing', on);
+    $('tr-play').setAttribute('aria-label', on ? 'Pause' : 'Abspielen');
+    $('tr-play-icon').innerHTML = on ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
   },
   stop() {
     this.token++;
     this.playing = false;
     if (this.src) { try { this.src.stop(); } catch {} this.src = null; }
-    $('preview-play').classList.remove('playing');
+    this.setPlayingUi(false);
   },
   async play(u0 = 0) {
-    this.stop();
+    this.stop(); snippet.stop();
     const token = this.token;
     const t = S.take; const ctx = await ensureCtx();
-    const dur = t.selEnd - t.selStart;
+    const dur = takeDur(t);
     if (u0 >= dur - 0.2) u0 = 0;
     this.playing = true;
-    $('preview-play').classList.add('playing');
+    this.setPlayingUi(true);
     const outLat = (ctx.outputLatency || 0) + (ctx.baseLatency || 0);
     const src = ctx.createBufferSource();
     src.buffer = S.song && S.song.id === t.songId ? S.song.buffer : null;
     if (!src.buffer) { toast('Song nicht geladen'); this.stop(); return; }
     src.connect(ctx.destination);
     const T = ctx.currentTime + 0.25;
-    src.start(T, t.selStart + u0, dur - u0);
+    src.start(T, t.selStart + u0, dur - u0); // Ton nur so lange wie das Video
     this.src = src;
     const it = t.previewSink.canvases(Math.max(t.firstTs, fileTimeFor(t, u0) - 0.1));
     let next = (await it.next()).value || null;
@@ -941,8 +1148,8 @@ const preview = {
     const loop = async () => {
       if (token !== this.token) { it.return(); return; }
       const u = u0 + (ctx.currentTime - T) - outLat;
-      this.u = clamp(u, 0, dur);
-      if (u >= dur) { this.stop(); this.u = 0; it.return(); return; }
+      this.u = clamp(u, u0, dur);
+      if (u >= dur) { this.stop(); this.u = dur; this.updateTransport(); it.return(); return; }
       const ft = fileTimeFor(t, Math.max(u, u0));
       while (next && next.timestamp <= ft) {
         cur = next;
@@ -950,14 +1157,88 @@ const preview = {
         if (token !== this.token) return;
         next = r.done ? null : r.value;
       }
-      if (cur) g.drawImage(cur.canvas, 0, 0, this.canvas.width, this.canvas.height);
+      if (cur) { g.drawImage(cur.canvas, 0, 0, this.canvas.width, this.canvas.height); this.frameTs = cur.timestamp; }
+      this.updateTransport();
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   },
+  toggle() { this.playing ? this.stop() : this.play(this.u >= takeDur(S.take) - 0.2 ? 0 : this.u); },
+  step(d) {
+    if (this.playing) this.stop();
+    this.requestDraw(clamp(this.u + d, 0, takeDur(S.take)));
+  },
 };
-$('preview-play').addEventListener('click', () => (preview.playing ? preview.stop() : preview.play(preview.u)));
-$('preview').addEventListener('click', () => { if (preview.playing) preview.stop(); });
+let scrubbing = false;
+$('preview-play').addEventListener('click', () => preview.toggle());
+$('preview').addEventListener('click', () => preview.toggle());
+$('tr-play').addEventListener('click', () => preview.toggle());
+$('tr-back').addEventListener('click', () => preview.step(-1));
+$('tr-fwd').addEventListener('click', () => preview.step(1));
+$('tr-prev').addEventListener('click', () => preview.step(-1 / FPS));
+$('tr-next').addEventListener('click', () => preview.step(1 / FPS));
+$('scrub').addEventListener('pointerdown', () => { scrubbing = true; if (preview.playing) preview.stop(); });
+$('scrub').addEventListener('input', (e) => {
+  if (preview.playing) preview.stop();
+  preview.requestDraw(Number(e.target.value) / 1000);
+});
+const endScrub = () => { scrubbing = false; preview.updateTransport(); };
+$('scrub').addEventListener('pointerup', endScrub);
+$('scrub').addEventListener('change', endScrub);
+
+// ------------------------------------------------------------------ Marker-Sync im Take
+const syncMarker = new MarkerWave($('mk-wave'), {
+  get: () => (S.take && mk.a != null ? S.take.selStart + mk.a : null),
+  set: (v) => { mk.a = v - S.take.selStart; },
+  range: () => [S.take.selStart, S.take.selStart + takeDur(S.take)],
+  onChange: () => renderMarkers(),
+});
+$('mk-card').addEventListener('toggle', () => {
+  if ($('mk-card').open && S.take && mk.a == null) mk.a = clamp(preview.u, 0, takeDur(S.take));
+  renderMarkers();
+  requestAnimationFrame(() => syncMarker.draw());
+});
+$('mk-a-minus').addEventListener('click', () => syncMarker.nudge(-0.01));
+$('mk-a-plus').addEventListener('click', () => syncMarker.nudge(0.01));
+$('mk-a-listen').addEventListener('click', () => { if (mk.a != null) snippet.play(S.take.selStart + mk.a, syncMarker); });
+$('mk-set-video').addEventListener('click', () => {
+  const t = S.take; if (!t) return;
+  if (preview.playing) preview.stop();
+  mk.v = preview.frameTs ?? Math.max(t.firstTs, fileTimeFor(t, preview.u));
+  renderMarkers();
+});
+$('mk-apply').addEventListener('click', async () => {
+  const t = S.take; if (!t || mk.v == null || mk.a == null) return;
+  // Bedingung: fileTimeFor(t, mk.a) == mk.v
+  const L = mk.v - (t.firstTs + t.songStartInRec + t.prerollActual + mk.a);
+  const totalMs = L * 1000;
+  if (Math.abs(totalMs) > 2000) { toast('Die Marker liegen über 2 s auseinander – passen sie zum selben Laut?', 4500); return; }
+  t.fineMs = totalMs - t.latencyMs;
+  // Song-Marker dauerhaft merken (Take, Song, Vorlage)
+  const abs = t.selStart + mk.a;
+  t.markAbs = abs;
+  if (S.song && S.song.id === t.songId) {
+    S.song.markAbs = abs; persistSel();
+    if (S.templateId) {
+      const tpl = await getTemplate(S.templateId);
+      if (tpl && tpl.songId === t.songId) { tpl.markAbs = abs; await putTemplate(tpl); S.templatesCache = (await allTemplates()) || []; }
+    }
+    renderHome(); homeMarker.draw();
+  }
+  offsetChanged();
+  toast(`Synchronisiert: ${Math.round(totalMs)} ms. Feinjustieren geht weiter unten.`, 3500);
+  await preview.play(Math.max(0, mk.a - 1.5));
+});
+function renderMarkers() {
+  const t = S.take; if (!t) return;
+  $('mk-a-val').textContent = mk.a != null ? `Song-Marker bei ${fmtPrecise(mk.a)} im Ausschnitt` : '';
+  $('mk-v-val').textContent = mk.v != null ? `✓ Frame bei ${fmtPrecise(mk.v - t.firstTs)} in der Aufnahme` : 'noch nicht gesetzt';
+  $('mk-apply').disabled = mk.v == null || mk.a == null;
+  $('mk-summary').textContent = mk.a != null ? (mk.v != null ? 'bereit' : 'Song-Marker ✓') : 'optional';
+  $('mk-a-help').textContent = t.markAbs != null || (S.song && S.song.markAbs != null)
+    ? 'Aus deiner Vorlage übernommen. Nur anpassen, wenn er nicht genau sitzt.'
+    : 'Zieh die Welle, bis der Strich genau auf einem markanten Laut liegt (p, b, m, Snare). Wird in der Vorlage gespeichert – nur einmal nötig.';
+}
 
 // ------------------------------------------------------------------ export
 $('btn-export').addEventListener('click', exportTake);
@@ -981,7 +1262,7 @@ async function exportTake() {
       if (!(await canEncodeAudio('aac'))) throw new Error('NO_AAC');
     }
 
-    const dur = t.selEnd - t.selStart;
+    const dur = takeDur(t);
     const nFrames = Math.round(dur * FPS);
     const canvas = document.createElement('canvas');
     canvas.width = OUT_W; canvas.height = OUT_H;
@@ -1087,4 +1368,4 @@ function registerSW() {
 }
 
 // Für Tests
-window.__ls = { S, decodeFallback, saveTemplate, openTemplate, allTemplates, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };
+window.__ls = { S, mk, preview, takeDur, homeMarker, decodeFallback, saveTemplate, openTemplate, allTemplates, evaluateTaps, fileTimeFor, exportTake, openTake, loadSong, putSong };
