@@ -1,5 +1,5 @@
 // Einfacher Offline-Cache: erst Netz, bei Fehler Cache.
-const CACHE = 'lipsync-studio-v6';
+const CACHE = 'lipsync-studio-v7';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './vendor/mediabunny.min.mjs', './vendor/mediabunny-aac-encoder.min.mjs',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png', './icons/favicon-64.png',
@@ -29,6 +29,6 @@ self.addEventListener('fetch', (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match('./index.html'))),
+      .catch(() => caches.match(req).then((r) => r || caches.match(new URL(req.url).pathname.includes('/desktop/') ? './desktop/index.html' : './index.html'))),
   );
 });

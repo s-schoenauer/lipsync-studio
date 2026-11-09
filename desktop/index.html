@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#10070F">
+<title>Lipsync Studio Desktop</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="../icons/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Startbildschirm: Projekt öffnen / anlegen -->
+<main id="start" class="start" hidden>
+  <div class="start-card">
+    <div class="brand-row"><span class="logo">ls.</span><span class="brand">Lipsync Studio <span class="muted">Desktop</span></span></div>
+    <h1>Viele Takes. Ein Song. Perfekt synchron.</h1>
+    <p class="muted">Ein Projekt ist ein Ordner auf deinem Rechner. Darin landen der Song, alle Original-Videos (bleiben unverändert) und die fertigen Exporte.</p>
+    <div class="row gap">
+      <button id="btn-open-folder" class="btn btn-pink">Projektordner wählen …</button>
+      <button id="btn-intern" class="btn btn-ghost" hidden>Im Browser speichern</button>
+    </div>
+    <p id="start-note" class="muted small"></p>
+    <div id="recent-wrap" hidden>
+      <h2 class="h-small">Zuletzt geöffnet</h2>
+      <ul id="recent" class="recent"></ul>
+    </div>
+  </div>
+</main>
+
+<!-- App -->
+<div id="app" class="app" hidden>
+  <header class="topbar">
+    <div class="brand-row"><span class="logo">ls.</span><span class="brand">Lipsync Studio</span></div>
+    <button id="btn-project-menu" class="pill-btn" title="Projekt wechseln"><span id="project-label">Projekt</span></button>
+    <nav class="tabs" aria-label="Ansicht">
+      <button data-view="projekt">Projekt</button>
+      <button data-view="editor">Editor</button>
+      <button data-view="raster">Raster</button>
+      <button data-view="spuren">Spuren</button>
+      <button data-view="export">Export</button>
+    </nav>
+    <button id="btn-import-top" class="btn btn-ghost btn-sm">Videos importieren</button>
+    <button id="btn-export-top" class="btn btn-pink btn-sm">Exportieren</button>
+  </header>
+
+  <section id="view-projekt" class="view" hidden></section>
+  <section id="view-editor" class="view view-editor" hidden></section>
+  <section id="view-raster" class="view" hidden></section>
+  <section id="view-spuren" class="view" hidden></section>
+  <section id="view-export" class="view" hidden></section>
+
+  <footer id="statusbar" class="statusbar"></footer>
+</div>
+
+<div id="drop-overlay" class="drop-overlay" hidden><div>Videos oder Ordner loslassen zum Importieren</div></div>
+<div id="modal-root"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<input id="file-videos" type="file" accept="video/*,.mov,.mp4,.m4v,.webm" multiple hidden>
+<input id="file-song" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.aif,.aiff,.flac" hidden>
+
+<script type="importmap">{ "imports": { "mediabunny": "../vendor/mediabunny.min.mjs" } }</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

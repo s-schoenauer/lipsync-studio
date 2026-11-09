@@ -25,3 +25,12 @@ Auf dem iPhone: Seite in Safari öffnen → Teilen → „Zum Home-Bildschirm“
 - Web Audio API (geplante Wiedergabe, Klicks, Kalibrierung)
 - MediaRecorder (nur Video)
 - [Mediabunny](https://mediabunny.dev) für Decoding, Vorschau und MP4-Export (MPL-2.0), plus `@mediabunny/aac-encoder` als Fallback für Browser ohne AAC-Encoder
+
+## Desktop-Version (Batch-Sync)
+
+`desktop/` – für Chrome oder Edge am PC/Mac: https://s-schoenauer.github.io/lipsync-studio/desktop/
+
+- Projekt = ein Ordner auf dem Rechner: `projekt.json`, `Song/`, `Originale/` (werden nie verändert), `Exporte/`
+- Song-Marker einmal setzen, in jedem Video den passenden Frame markieren (Taste M oder Frame-Streifen F) → synchron
+- Videos mit hörbarem Song-Ton werden automatisch über die Tonspur abgeglichen
+- Ansichten: Projekt, Editor (Timeline, Start/Ende pro Video), Raster (alle Takes gleichzeitig), Spuren (Mehrspur-Timeline), Export-Warteschlange
